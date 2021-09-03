@@ -5,11 +5,13 @@ from bs4 import BeautifulSoup as bs
 
 supply_request = requests.get('http://reports.ieso.ca/public/GenOutputCapability/PUB_GenOutputCapability_20210824.xml')
 
+#saving raw xml
 file = open("output_raw.xml", 'w')
 file.write(supply_request.text)
 file.close()
 
 # finds the second '>' character to remove excess header information
+# the ieso includes header information, which is then omitted
 xml_text = supply_request.text
 c = 0
 i, j = '', ''
@@ -20,10 +22,13 @@ while j != '>':
         j = xml_text[c]
         c += 1
 xml_text = xml_text[c:]
+
+#saves headerless xml 
 file = open("output.xml", 'w')
 file.write(xml_text)
 file.close()
 
+#reads the headerless xml
 with open("output.xml", "r") as file:
         content = file.readlines()
         content = "".join(content)
@@ -67,7 +72,6 @@ for generator in generators:
                 if x.find('energymw') != None: 
                         capability_energymw = x.find('energymw').contents[0]
                         capabilities_dict[hour] = capability_energymw 
-                
 
         capacities = generator.find("capacities")
         availcapacity = capacities.find_all("availcapacity")
@@ -84,15 +88,13 @@ for generator in generators:
         capabilities_dict = {}
         capacities = {}
 
-
 keydict = {}
 c = 0
 i = 0
 for i in list_generators:
         keydict[c] = { 'name' : i.name, 'fueltype': i.fueltype, 'outputs': i.outputs, 'capabilities': i.capabilities, 'capacities': i.capacity}
         c += 1
-x = 0
-newdict = {}
+
 
 json_object = json.dumps(keydict, indent = 4) 
 file = open("output.json", 'w')
@@ -100,13 +102,18 @@ file.write(json_object)
 file.close()
 
 
-for i in keydict:
-        if keydict[i]['fueltype'] == "SOLAR":
-                newdict[x] = keydict[i]
-                x += 1
 
-json_object = json.dumps(newdict, indent = 4) 
-file = open("solar.json", 'w')
-file.write(json_object)
-file.close()
+fueltypes = ['NUCLEAR', 'GAS', 'BIOFUEL', 'HYDRO', 'SOLAR', 'WIND']
+for fuel in fueltypes:
+        x = 0
+        newdict = {}
+        for i in keydict:
+                if keydict[i]['fueltype'] == fuel:
+                        newdict[x] = keydict[i]
+                        x += 1
+        json_object = json.dumps(newdict, indent = 4)                         
+        file = open(f"fuel\\/{fuel}.json", 'w')
+        file.write(json_object)
+        file.close()
+
 
