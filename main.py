@@ -16,17 +16,26 @@ class Generator:
                 self.info = { 'name' : self.name, 'fueltype': self.fueltype, "date": self.date, 'outputs': self.outputs, 'capabilities': self.capabilities, 'capacities': self.capacity}
 
 class XML:
-        def __init__(self, date=""):
-                if date != "": self.date = date
+        def __init__(self, date=None):
+                if date != None: self.date = date
+                else:
+                        self.date = None
 
             
         # date  format as string 'YYYYMMDD'
         def GetIesoXML(self):
-                if self.date != "":
-                        url = "_" + self.date
-                supply_request = requests.get(f'http://reports.ieso.ca/public/GenOutputCapability/PUB_GenOutputCapability{url}.xml')
+                url_date = ""
+                if self.date != None:
+                        url_date = "_" + self.date
 
-                file = open(f"output_raw{url}.xml", 'w')
+                supply_request = requests.get(f'http://reports.ieso.ca/public/GenOutputCapability/PUB_GenOutputCapability{url_date}.xml')
+
+                if self.date == None:
+                        self.date = bs(supply_request.text, "lxml").find('date').contents[0].replace('-','')
+
+                url_date = "_" + self.date
+
+                file = open(f"output_raw{url_date}.xml", 'w')
                 file.write(supply_request.text)
                 file.close()
 
@@ -43,7 +52,7 @@ class XML:
                 output = supply_request.text[c:]
 
                 #saves headerless xml 
-                file = open(f"output{url}.xml", 'w')
+                file = open(f"output{url_date}.xml", 'w')
                 file.write(output)
                 file.close()
 
@@ -54,8 +63,8 @@ class XML:
 
         def parse(self):
                 #reads the headerless xml
-                filedate = "_" + self.date
-                with open(f"output{filedate}.xml", "r") as file:
+                url_date = "_" + self.date
+                with open(f"output{url_date}.xml", "r") as file:
                         content = file.readlines()
                         content = "".join(content)
                         bs_content = bs(content, "lxml")
@@ -112,7 +121,7 @@ class XML:
 
 
         def DumpToJson(self):
-                filedate = "_" + self.date
+                url_date = "_" + self.date
                 keydict = {}
                 c = 0
                 i = 0
@@ -121,7 +130,7 @@ class XML:
                         c += 1
 
                 json_object = json.dumps(keydict, indent = 4) 
-                file = open(f"output{filedate}.json", 'w')
+                file = open(f"output{url_date}.json", 'w')
                 file.write(json_object)
                 file.close()
 
@@ -134,14 +143,14 @@ class XML:
                                         dumpdict[x] = keydict[i]
                                         x += 1
                         json_object = json.dumps(dumpdict, indent = 4)                         
-                        file = open(f"fuel\\/{fuel}{filedate}.json", 'w')
+                        file = open(f"fuel\\/{fuel}{url_date}.json", 'w')
                         file.write(json_object)
                         file.close()
 
 
 # main
 
-data_date = XML("20210905")
+data_date = XML()
 data_date.GetIesoXML()
 data_date.parse()
 data_date.DumpToJson()
