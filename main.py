@@ -36,8 +36,11 @@ class XML:
                 url_date = "_" + self.date
 
                 file = open(f"output_raw{url_date}.xml", 'w')
+                file2 = open(f"output_raw.xml", 'w')
                 file.write(supply_request.text)
+                file2.write(supply_request.text)
                 file.close()
+                file2.close()
 
                 # finds the second '>' character to remove excess header information
                 # the ieso includes header information, which is then omitted
@@ -53,8 +56,11 @@ class XML:
 
                 #saves headerless xml 
                 file = open(f"output{url_date}.xml", 'w')
+                file2 = open(f"output.xml", 'w')
                 file.write(output)
+                file2.write(output)
                 file.close()
+                file2.close()
 
                 self.response = output
 
@@ -131,9 +137,11 @@ class XML:
 
                 json_object = json.dumps(keydict, indent = 4) 
                 file = open(f"output{url_date}.json", 'w')
+                file2 = open(f"output.json", 'w')
                 file.write(json_object)
+                file2.write(json_object)
                 file.close()
-
+                file2.close()
                 fueltypes = ['NUCLEAR', 'GAS', 'BIOFUEL', 'HYDRO', 'SOLAR', 'WIND']
                 for fuel in fueltypes:
                         x = 0
@@ -150,7 +158,7 @@ class XML:
 
 # main
 
-data_date = XML()
-data_date.GetIesoXML()
-data_date.parse()
-data_date.DumpToJson()
+now = XML()
+now.GetIesoXML()
+now.parse()
+now.DumpToJson()
