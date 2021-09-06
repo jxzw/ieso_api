@@ -3,117 +3,145 @@ import requests
 import json
 from bs4 import BeautifulSoup as bs
 
-supply_request = requests.get('http://reports.ieso.ca/public/GenOutputCapability/PUB_GenOutputCapability_20210824.xml')
 
-#saving raw xml
-file = open("output_raw.xml", 'w')
-file.write(supply_request.text)
-file.close()
-
-# finds the second '>' character to remove excess header information
-# the ieso includes header information, which is then omitted
-xml_text = supply_request.text
-c = 0
-i, j = '', ''
-while j != '>':
-        while i != '>':
-                i = xml_text[c]
-                c += 1
-        j = xml_text[c]
-        c += 1
-xml_text = xml_text[c:]
-
-#saves headerless xml 
-file = open("output.xml", 'w')
-file.write(xml_text)
-file.close()
-
-#reads the headerless xml
-with open("output.xml", "r") as file:
-        content = file.readlines()
-        content = "".join(content)
-        bs_content = bs(content, "lxml")
-file.close()
 
 class Generator:
-        def __init__(self, name, fueltype, outputs, capabilities, capacity):
+        def __init__(self, name, fueltype, date, outputs, capabilities, capacity):
                 self.name = name
                 self.fueltype = fueltype
                 self.outputs = outputs
+                self.date = date
                 self.capabilities = capabilities
                 self.capacity = capacity
+                self.info = { 'name' : self.name, 'fueltype': self.fueltype, "date": self.date, 'outputs': self.outputs, 'capabilities': self.capabilities, 'capacities': self.capacity}
 
-list_generators = []
-outputs_dict = {}
-capabilities_dict = {}
-capacities_dict = {}
+class XML:
+        def __init__(self, date=""):
+                if date != "": self.date = date
 
-generators = bs_content.find_all("generator")
-for generator in generators:
-        fueltype = generator.find('fueltype').contents[0]
-        name = generator.find('generatorname').contents[0]
-        fueltype = generator.find('fueltype').contents[0]
-        outputs = generator.find("outputs")
-        output = outputs.find_all("output")
-        for h in output:
+            
+        # date  format as string 'YYYYMMDD'
+        def GetIesoXML(self):
+                if self.date != "":
+                        url = "_" + self.date
+                supply_request = requests.get(f'http://reports.ieso.ca/public/GenOutputCapability/PUB_GenOutputCapability{url}.xml')
 
-                hour = h.find('hour').contents[0]
-                timehour = int(hour)
-                if h.find('energymw') != None:
-                        output_energymw = h.find('energymw').contents[0]
-                        outputs_dict[hour] = output_energymw
-                else:
-                        outputs_dict[hour] = 0
+                file = open(f"output_raw{url}.xml", 'w')
+                file.write(supply_request.text)
+                file.close()
 
-        capabilities = generator.find("capabilities")
-        capability = capabilities.find_all("capability")
-        for x in capability:
-                hour = x.find('hour').contents[0]
-                if x.find('energymw') != None: 
-                        capability_energymw = x.find('energymw').contents[0]
-                        capabilities_dict[hour] = capability_energymw 
+                # finds the second '>' character to remove excess header information
+                # the ieso includes header information, which is then omitted
+                c = 0
+                i, j = '', ''
+                while j != '>':
+                        while i != '>':
+                                i = supply_request.text[c]
+                                c += 1
+                        j = supply_request.text[c]
+                        c += 1
+                output = supply_request.text[c:]
 
-        capacities = generator.find("capacities")
-        availcapacity = capacities.find_all("availcapacity")
-        for c in availcapacity:
-                hour = c.find('hour').contents[0]
-                if c.find('energymw') != None: 
-                        capacity_energymw = c.find('energymw').contents[0]
-                        capacities_dict[hour] = capacity_energymw
+                #saves headerless xml 
+                file = open(f"output{url}.xml", 'w')
+                file.write(output)
+                file.close()
+
+                self.response = output
+
+                return self.response
+
+
+        def parse(self):
+                #reads the headerless xml
+                filedate = "_" + self.date
+                with open(f"output{filedate}.xml", "r") as file:
+                        content = file.readlines()
+                        content = "".join(content)
+                        bs_content = bs(content, "lxml")
+                        file.close()
+
+                list_generators = []
+                outputs_dict, capabilities_dict, capacities_dict = {}, {}, {}
+
+                date = str(bs_content.find('date').contents[0]).replace('-','')
+
+                generators = bs_content.find_all("generator")
+
+                for generator in generators:
+                        fueltype = generator.find('fueltype').contents[0]
+                        name = generator.find('generatorname').contents[0]
+                        fueltype = generator.find('fueltype').contents[0]
+                        outputs = generator.find("outputs")
+                        output = outputs.find_all("output")
+
+                        for h in output:
+                                hour = h.find('hour').contents[0]
+                                if h.find('energymw') != None:
+                                        output_energymw = h.find('energymw').contents[0]
+                                        outputs_dict[hour] = output_energymw
+                                else:
+                                        outputs_dict[hour] = 0
                 
-        generatorEntry = Generator(name, fueltype, outputs_dict, capabilities_dict, capacities_dict)
-        list_generators.append(generatorEntry)
 
-        outputs_dict = {}
-        capabilities_dict = {}
-        capacities = {}
+                        capabilities = generator.find("capabilities")
+                        capability = capabilities.find_all("capability")
+                        for x in capability:
+                                hour = x.find('hour').contents[0]
+                                if x.find('energymw') != None: 
+                                        capability_energymw = x.find('energymw').contents[0]
+                                        capabilities_dict[hour] = capability_energymw
+                                else:
+                                        capabilities_dict[hour] = 0        
 
-keydict = {}
-c = 0
-i = 0
-for i in list_generators:
-        keydict[c] = { 'name' : i.name, 'fueltype': i.fueltype, 'outputs': i.outputs, 'capabilities': i.capabilities, 'capacities': i.capacity}
-        c += 1
+                        capacities = generator.find("capacities")
+                        availcapacity = capacities.find_all("availcapacity")
+                        for c in availcapacity:
+                                hour = c.find('hour').contents[0]
+                                if c.find('energymw') != None: 
+                                        capacity_energymw = c.find('energymw').contents[0]
+                                        capacities_dict[hour] = capacity_energymw
+                                else:
+                                        capacities_dict[hour] = 0
+                                
+                        generatorEntry = Generator(name, fueltype, date, outputs_dict, capabilities_dict, capacities_dict)
+                        list_generators.append(generatorEntry)
+                        self.list_generators = list_generators
 
-
-json_object = json.dumps(keydict, indent = 4) 
-file = open("output.json", 'w')
-file.write(json_object)
-file.close()
-
-
-
-fueltypes = ['NUCLEAR', 'GAS', 'BIOFUEL', 'HYDRO', 'SOLAR', 'WIND']
-for fuel in fueltypes:
-        x = 0
-        newdict = {}
-        for i in keydict:
-                if keydict[i]['fueltype'] == fuel:
-                        newdict[x] = keydict[i]
-                        x += 1
-        json_object = json.dumps(newdict, indent = 4)                         
-        file = open(f"fuel\\/{fuel}.json", 'w')
-        file.write(json_object)
-        file.close()
+                return list_generators
 
 
+        def DumpToJson(self):
+                filedate = "_" + self.date
+                keydict = {}
+                c = 0
+                i = 0
+                for i in self.list_generators:
+                        keydict[c] = i.info
+                        c += 1
+
+                json_object = json.dumps(keydict, indent = 4) 
+                file = open(f"output{filedate}.json", 'w')
+                file.write(json_object)
+                file.close()
+
+                fueltypes = ['NUCLEAR', 'GAS', 'BIOFUEL', 'HYDRO', 'SOLAR', 'WIND']
+                for fuel in fueltypes:
+                        x = 0
+                        dumpdict = {}
+                        for i in keydict:
+                                if keydict[i]['fueltype'] == fuel:
+                                        dumpdict[x] = keydict[i]
+                                        x += 1
+                        json_object = json.dumps(dumpdict, indent = 4)                         
+                        file = open(f"fuel\\/{fuel}{filedate}.json", 'w')
+                        file.write(json_object)
+                        file.close()
+
+
+# main
+
+data_date = XML("20210905")
+data_date.GetIesoXML()
+data_date.parse()
+data_date.DumpToJson()
