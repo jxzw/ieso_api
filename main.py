@@ -122,6 +122,7 @@ class XML:
                         generatorEntry = Generator(name, fueltype, date, outputs_dict, capabilities_dict, capacities_dict)
                         list_generators.append(generatorEntry)
                         self.list_generators = list_generators
+                        outputs_dict, capabilities_dict, capacities_dict = {}, {}, {}
 
                 return list_generators
 
